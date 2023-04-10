@@ -70,6 +70,12 @@ class ChatActivity : BasicActivity() {
         /* Reads data from Firebase, orders it by time,
         converts it to Message object and adds it to the RecyclerView */
 
+        // Koden körs i denna ordning: 1, 3, 2 --> 2 --> 2 --> 2 ...
+        // Även snapshot listener är en asynkron operation. Till skillnaden med get, som körs bara en gång,
+        // här kommer data hämtas från db varje gång det sker en ändring i själva db.
+        // Det vill säga, varje gång man lägger till ett meddelande till databasen kommer denna förändras, och snapshot uppdateras.
+        
+        // 1
         messagesRef.document(senderRoom!!).collection("Messages")
             .orderBy("timestamp")
             .addSnapshotListener() { snapshot, e ->
@@ -81,16 +87,27 @@ class ChatActivity : BasicActivity() {
                     }
                     messageAdapter.notifyDataSetChanged()
                 }
+                // 2
             }
+        // 3
 
 
         /* Firebase query for sender's name */
+
+        // Operationerna körs i denna ordning: 1, 2, 4, 5, --> 3
+        // Getten körs asynkront: man båbörjar hämtningen av datam, och koden utanför .get() körs samtidigt som appen hämtar resultaten från Firestore.
+        // Så programmet kommer inte stanna, och istället fortsätter.
+        // Sändarnamnet behöver hämtas varje gång denne skickar ett meddelande, då objektet skapas och laddas upp som dokument på Firestore.
+
+        // 1
         sendButton.setOnClickListener {
 
+            // 2
             val message = messageBox.text.toString()
             usersRef.whereEqualTo("uid", senderUid)
                 .get()
                 .addOnSuccessListener { documents ->
+                    // 3
                     for (document in documents) {
                         Log.d("nameQuery", "${document.id} => ${document.data}")
                         val senderName = document.toObject<User>().name.toString()
@@ -104,8 +121,10 @@ class ChatActivity : BasicActivity() {
                 .addOnFailureListener {exception ->
                     Log.w("nameQuery", "Error getting documents: ", exception)
                 }
+            // 4
 
         }
+        // 5
     }
 
     /* Adds messge to Firebase */
